@@ -1,0 +1,108 @@
+---
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+### Elasticity Breakpoint Estimation  
+Brandon Lawrence   
+11/7/2019  
+
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(segmented)
+library(tinytex)
+
+setwd("C:/Users/lawrebx/Desktop/")
+
+data <- read_csv("C:/Users/lawrebx/Desktop/Data.csv")
+
+sapply(data,class)
+
+#Price is character vector with $, convert to decimal
+#Sales is character vector with $ and , convert to decimal
+
+data$price_num <- as.numeric(gsub('[$,]','', data$Price))
+data$sales_num <- as.numeric(gsub('[$,]','', data$`Sales ($s)`))
+data$volume <- as.numeric(gsub('[$,]','', data$`Volume (units)`))
+data$price_ln <- log(data$price_num)
+data$volume_ln <- log(data$volume)
+
+ggplot(data, aes(x = price_ln, y = volume_ln)) + geom_point()
+
+#Convert date to translatable format
+
+l_model <- lm(volume_ln~price_ln, data = data)
+
+s_model <- segmented(l_model, seg.Z = ~price_ln, psi = c(log(13)))
+
+summary(s_model)
+
+breakpoint <- s_model$psi[2]
+
+# get the fitted data
+my.fitted <- fitted(s_model)
+my.model <- data.frame(Price = data$price_ln, Quantity = my.fitted)
+my.line <- s_model$psi[2]
+
+coeffs <- s_model$coefficients
+
+full_plot_label <- c(paste("Estimated breakpoint: $",round(exp(my.line),2),sep=""),
+                     paste("Estimated elasticity < $",round(exp(my.line),2),":",round(coeffs[2],3),sep=""),
+                     paste("Estimated elasticity > $",round(exp(my.line),2),":",round(coeffs[3],3),sep=""))
+```
+
+#### Prompt
+
+Attached is 8 months’ worth of raw data by day by store for sales of a single product in 43 stores of a nation-wide retail chain. For the purposes of this exercise, you may assume no competitor activity is ongoing in the market and all stores are identical in size, foot traffic, consumer profile etc.
+
+The product’s SRP is \$14.99. But the store managers can choose to adjust the price down day by day. You
+will see, as the price goes down from \$14.99, people tend to buy more and more. The cheaper the product
+becomes, the more customers buy. Go ahead, scatter plot the volume against price to see the
+relationship. Do not worry about adding more features in your models
+for this exercise other than price (and intercept). 
+
+Your answer should be in the format:
+The price threshold is at \$x/unit. The elasticity above \$x/unit price point is y, below \$x/unit price point is z.
+
+#### Summary
+
+The price threshold is a \$12.96/unit. The elasticity above \$12.96/unit is -2.11 (a 1% increase in price yields a 2.11% decrease in quantity sold), below the \$12.96 price point is -0.98 (a 1% increase in price yields a 0.98% decrease in quantity sold).
+
+To find the estimated breakpoint, I first visually inspected to data to get an idea of how many breakpoints may exist. The data appeared to contain one breakpoint around $13. 
+
+I took the natural log of the price and quantity in order to calculate the elasticity coeffecient using a linear model since the log transformation will yield direct elasticity estimates. I used the linear model as an input to the segmented function from the segmented package [Muggeo 2008]. This function estimates breakpoints in regression models [Muggeo 2003]. The result, shown in the figure below, produced the model estimates.
+
+```{r cars, echo = FALSE}
+ggplot(data = data, aes(x = data$price_ln, y = data$volume_ln)) + 
+      geom_point(colour = 'grey50') +
+      geom_line(data = my.model, aes(x = Price, y = Quantity), size = 1, colour = 'red') +
+      geom_vline(xintercept = my.line, colour = 'navy', size = 1, linetype = 'F1') +
+      theme_classic() +
+      xlab("ln(Price per Unit)") +
+      ylab("ln(Units Sold)") +
+      labs(title = "Price Elasicity Breakpoint Estimation", subtitle = "Full Data Set, n = 10,449", caption = 'Produced with ggplot2 [Wickham 2016]') +
+      annotate("text", x = log(13.5), y = c(log(300),log(268),log(230)), hjust = 0, label = full_plot_label)
+```
+
+#### Comments & Assumptions
+
+I assumed no seasonal impact on the estimates. I hypothesize that the variance and estimates may be tightened after deseasonalizing the data. Having only 8 months of data and such a clear visual break point, I assumed that seasonal adjustments will not have a material impact on the estimates.
+
+I treated all stores as one group. Each store may have a unique breakpoint and would be easily estimated using my approach. I felt that this depth of analysis was out of scope for this exercise, but I can produce the store-level estimates if needed.
+
+The dataset contains a few prices above the \$14.99 SRP and many data points at the \$14.99 SRP. I ran a few sensitivities around removing the \$14.99 price point along with prices above, and it had minimal impact on the breakpoint estimation. I also looked at the impact of removing very low prices, with similar results. I feel that it is appropriate to estimate the model using the full data set (n = 10,449).
+
+#### Sources
+  
+Allaire J, Xie Y, McPherson J, Luraschi J, Ushey K, Atkins A, Wickham H, Cheng J, Chang W, Iannone R (2019). rmarkdown: Dynamic Documents for R. R package version 1.16, https://github.com/rstudio/rmarkdown. 
+
+Muggeo (2003) Estimating regression models with unknown break-points. Statistics in
+Medicine 22, 3055–3071
+
+Muggeo (2008). segmented: an R Package to Fit Regression Models with Broken-Line Relationships. R News, 8/1, 20-25. URL https://cran.r-project.org/doc/Rnews/.  
+
+H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
