@@ -14,11 +14,9 @@ Brandon Lawrence
 library(tidyverse)
 library(ggplot2)
 library(segmented)
-library(tinytex)
 
-setwd("C:/Users/lawrebx/Desktop/")
 
-data <- read_csv("C:/Users/lawrebx/Desktop/Data.csv")
+data <- read_csv("SegmentedRegressionData.csv")
 
 sapply(data,class)
 
